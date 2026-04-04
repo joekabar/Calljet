@@ -191,8 +191,11 @@ router.put('/:id', requireAuth, async (req, res) => {
 router.post('/import/:campaignId', requireAuth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+  return res.status(400).json({ error: 'No file uploaded' });
+}
+
+console.log('Import file received:', req.file.originalname, req.file.size, 'bytes');
+console.log('Body params:', req.body);
 
     const campaignId = req.params.campaignId;
     const phoneColumn = req.body.phone_column || 'phone';
@@ -237,7 +240,8 @@ router.post('/import/:campaignId', requireAuth, upload.single('file'), async (re
     res.json({ imported, total: leads.length });
   } catch (err) {
     console.error('CSV import error:', err);
-    res.status(500).json({ error: 'Failed to import leads' });
+    console.error('CSV import error details:', err.message);
+res.status(500).json({ error: 'Failed to import leads: ' + err.message });
   }
 });
 
