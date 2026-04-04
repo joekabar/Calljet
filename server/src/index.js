@@ -20,8 +20,7 @@ const server = createServer(app);
 // Trust Railway proxy
 app.set('trust proxy', 1);
 
-// Security
-app.use(helmet());
+
 
 // Security
 app.use(helmet());
