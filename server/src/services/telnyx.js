@@ -1,17 +1,19 @@
 import Telnyx from 'telnyx';
 
-const telnyx = Telnyx(process.env.TELNYX_API_KEY);
+const client = new Telnyx({
+  apiKey: process.env.TELNYX_API_KEY,
+});
 
-export async function initiateCall({ to, from, connectionId, clientState }) {
+export async function initiateCall({ to, from, connectionId, clientState, webhookUrl }) {
   try {
-    const call = await telnyx.calls.create({
+    const response = await client.calls.dial({
       connection_id: connectionId || process.env.TELNYX_CONNECTION_ID,
       to,
       from: from || process.env.TELNYX_DEFAULT_CALLER_ID,
       client_state: Buffer.from(JSON.stringify(clientState || {})).toString('base64'),
-      webhook_url: `${process.env.SERVER_URL}/api/webhooks/telnyx/call`,
+      webhook_url: webhookUrl || `${process.env.SERVER_URL}/api/webhooks/telnyx/call`,
     });
-    return call.data;
+    return response.data;
   } catch (error) {
     console.error('Telnyx call error:', error);
     throw error;
@@ -20,7 +22,7 @@ export async function initiateCall({ to, from, connectionId, clientState }) {
 
 export async function hangupCall(callControlId) {
   try {
-    await telnyx.calls.hangup(callControlId);
+    await client.calls.hangup(callControlId);
   } catch (error) {
     console.error('Telnyx hangup error:', error);
     throw error;
@@ -29,9 +31,9 @@ export async function hangupCall(callControlId) {
 
 export async function startRecording(callControlId) {
   try {
-    await telnyx.calls.record_start(callControlId, {
+    await client.calls.recordStart(callControlId, {
       format: 'mp3',
-      channels: 'dual'
+      channels: 'dual',
     });
   } catch (error) {
     console.error('Telnyx recording error:', error);
@@ -41,7 +43,7 @@ export async function startRecording(callControlId) {
 
 export async function stopRecording(callControlId) {
   try {
-    await telnyx.calls.record_stop(callControlId);
+    await client.calls.recordStop(callControlId);
   } catch (error) {
     console.error('Telnyx stop recording error:', error);
     throw error;
@@ -50,29 +52,11 @@ export async function stopRecording(callControlId) {
 
 export async function sendDTMF(callControlId, digits) {
   try {
-    await telnyx.calls.dtmf(callControlId, { digits });
+    await client.calls.dtmf(callControlId, { digits });
   } catch (error) {
     console.error('Telnyx DTMF error:', error);
     throw error;
   }
 }
 
-export async function muteCall(callControlId) {
-  try {
-    await telnyx.calls.mute(callControlId);
-  } catch (error) {
-    console.error('Telnyx mute error:', error);
-    throw error;
-  }
-}
-
-export async function unmuteCall(callControlId) {
-  try {
-    await telnyx.calls.unmute(callControlId);
-  } catch (error) {
-    console.error('Telnyx unmute error:', error);
-    throw error;
-  }
-}
-
-export default telnyx;
+export default client;
