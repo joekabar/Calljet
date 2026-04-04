@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useCall } from '../contexts/CallContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Phone, Users, CheckCircle, Clock, Play, List } from 'lucide-react';
+import { Phone, Users, CheckCircle, Clock, Play, List, Megaphone } from 'lucide-react';
 
 export default function Dashboard() {
   const [campaigns, setCampaigns] = useState([]);
