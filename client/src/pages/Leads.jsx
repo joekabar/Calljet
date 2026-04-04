@@ -54,7 +54,7 @@ export default function Leads() {
     if (!file) return;
     setImporting(true);
     try {
-      const result = await api.importLeads(campaignId, file);
+      const result = await api.importLeads(campaignId, file, { separator: ';', phone_column: 'Telefoonnummer' });
       alert(`Successfully imported ${result.imported} leads`);
       loadLeads();
     } catch (err) {
