@@ -27,13 +27,16 @@ router.post('/', requireAuth, async (req, res) => {
 
     // Update lead call attempts
     if (lead_id) {
-      await supabase.rpc('increment_call_attempts', { p_lead_id: lead_id }).catch(() => {
-        // Fallback if RPC doesn't exist
-        supabase
-          .from('leads')
-          .update({ call_attempts: supabase.raw('call_attempts + 1') })
-          .eq('id', lead_id);
-      });
+      const { data: currentLead } = await supabase
+        .from('leads')
+        .select('call_attempts')
+        .eq('id', lead_id)
+        .single();
+
+      await supabase
+        .from('leads')
+        .update({ call_attempts: (currentLead?.call_attempts || 0) + 1 })
+        .eq('id', lead_id);
 
       // Log activity
       await supabase.from('activity_log').insert({
