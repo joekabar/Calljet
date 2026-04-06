@@ -20,8 +20,6 @@ const server = createServer(app);
 // Trust Railway proxy
 app.set('trust proxy', 1);
 
-
-
 // Security
 app.use(helmet());
 app.use(cors({
@@ -36,9 +34,9 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Telnyx webhooks need raw body
-app.use('/api/webhooks', express.raw({ type: 'application/json' }));
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/campaigns', campaignRoutes);
@@ -53,7 +51,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// WebSocket server for real-time agent updates
+// WebSocket
 const wss = new WebSocketServer({ server, path: '/ws' });
 setupWebSocket(wss);
 

@@ -6,72 +6,33 @@ import Dashboard from './pages/Dashboard';
 import Dialer from './pages/Dialer';
 import Campaigns from './pages/Campaigns';
 import Leads from './pages/Leads';
+import Users from './pages/Users';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-calljet-600" />
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-calljet-600" /></div>;
   return user ? children : <Navigate to="/login" />;
+}
+
+function Wrapped({ children }) {
+  return <ProtectedRoute><CallProvider><Layout>{children}</Layout></CallProvider></ProtectedRoute>;
 }
 
 function AppRoutes() {
   const { user } = useAuth();
-
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-      <Route path="/" element={
-        <ProtectedRoute>
-          <CallProvider>
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </CallProvider>
-        </ProtectedRoute>
-      } />
-      <Route path="/dialer/:campaignId" element={
-        <ProtectedRoute>
-          <CallProvider>
-            <Layout>
-              <Dialer />
-            </Layout>
-          </CallProvider>
-        </ProtectedRoute>
-      } />
-      <Route path="/campaigns" element={
-        <ProtectedRoute>
-          <CallProvider>
-            <Layout>
-              <Campaigns />
-            </Layout>
-          </CallProvider>
-        </ProtectedRoute>
-      } />
-      <Route path="/leads/:campaignId" element={
-        <ProtectedRoute>
-          <CallProvider>
-            <Layout>
-              <Leads />
-            </Layout>
-          </CallProvider>
-        </ProtectedRoute>
-      } />
+      <Route path="/" element={<Wrapped><Dashboard /></Wrapped>} />
+      <Route path="/dialer/:campaignId" element={<Wrapped><Dialer /></Wrapped>} />
+      <Route path="/campaigns" element={<Wrapped><Campaigns /></Wrapped>} />
+      <Route path="/leads/:campaignId" element={<Wrapped><Leads /></Wrapped>} />
+      <Route path="/users" element={<Wrapped><Users /></Wrapped>} />
     </Routes>
   );
 }
 
 export default function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
-  );
+  return <BrowserRouter><AuthProvider><AppRoutes /></AuthProvider></BrowserRouter>;
 }

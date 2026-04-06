@@ -10,75 +10,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        loadProfile();
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        loadProfile();
-      } else {
-        setProfile(null);
-      }
-    });
-
+    supabase.auth.getSession().then(({ data: { session } }) => { if (session?.user) { setUser(session.user); loadProfile(); } setLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); if (session?.user) loadProfile(); else setProfile(null); });
     return () => subscription.unsubscribe();
   }, []);
 
-  async function loadProfile() {
-    try {
-      const p = await api.getMe();
-      setProfile(p);
-    } catch (err) {
-      console.error('Failed to load profile:', err);
-    }
-  }
+  async function loadProfile() { try { setProfile(await api.getMe()); } catch (err) { console.error('Failed to load profile:', err); } }
+  async function signIn(email, password) { const { data, error } = await supabase.auth.signInWithPassword({ email, password }); if (error) throw error; return data; }
+  async function signUp(email, password, name) { const { data, error } = await supabase.auth.signUp({ email, password }); if (error) throw error; if (data.user) await api.registerUser({ id: data.user.id, email, name, role: 'agent' }); return data; }
+  async function signOut() { await api.updateStatus('offline').catch(() => {}); await supabase.auth.signOut(); setUser(null); setProfile(null); }
 
-  async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
-  }
-
-  async function signUp(email, password, name) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
-
-    // Create user profile
-    if (data.user) {
-      await api.registerUser({
-        id: data.user.id,
-        email,
-        name,
-        role: 'agent'
-      });
-    }
-    return data;
-  }
-
-  async function signOut() {
-    await api.updateStatus('offline').catch(() => {});
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, loadProfile }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, loadProfile }}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-}
+export function useAuth() { const ctx = useContext(AuthContext); if (!ctx) throw new Error('useAuth must be used within AuthProvider'); return ctx; }

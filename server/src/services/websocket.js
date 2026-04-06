@@ -1,81 +1,19 @@
-const clients = new Map(); // userId -> ws connection
-
+const clients = new Map();
 export function setupWebSocket(wss) {
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws) => {
     let userId = null;
-
     ws.on('message', (data) => {
       try {
-        const message = JSON.parse(data);
-
-        switch (message.type) {
-          case 'auth':
-            userId = message.userId;
-            clients.set(userId, ws);
-            console.log(`Agent connected: ${userId}`);
-            broadcastAgentStatus();
-            break;
-
-          case 'status_update':
-            // Agent changed their status (pause, online, etc.)
-            broadcastToAll({
-              type: 'agent_status',
-              userId: message.userId,
-              status: message.status,
-              pauseReason: message.pauseReason
-            });
-            break;
-
-          case 'ping':
-            ws.send(JSON.stringify({ type: 'pong' }));
-            break;
-
-          default:
-            break;
-        }
-      } catch (err) {
-        console.error('WS message error:', err);
-      }
+        const msg = JSON.parse(data);
+        if (msg.type === 'auth') { userId = msg.userId; clients.set(userId, ws); broadcastAgentStatus(); }
+        else if (msg.type === 'ping') ws.send(JSON.stringify({ type: 'pong' }));
+        else if (msg.type === 'status_update') broadcastToAll({ type: 'agent_status', userId: msg.userId, status: msg.status });
+      } catch (err) { console.error('WS error:', err); }
     });
-
-    ws.on('close', () => {
-      if (userId) {
-        clients.delete(userId);
-        console.log(`Agent disconnected: ${userId}`);
-        broadcastAgentStatus();
-      }
-    });
-
-    ws.on('error', (err) => {
-      console.error('WS error:', err);
-    });
+    ws.on('close', () => { if (userId) { clients.delete(userId); broadcastAgentStatus(); } });
+    ws.on('error', (err) => console.error('WS error:', err));
   });
 }
-
-export function broadcastAgentStatus() {
-  const onlineAgents = Array.from(clients.keys());
-  broadcastToAll({
-    type: 'agents_online',
-    agents: onlineAgents
-  });
-}
-
-export function broadcastToAll(message) {
-  const data = JSON.stringify(message);
-  clients.forEach((ws) => {
-    if (ws.readyState === 1) { // WebSocket.OPEN
-      ws.send(data);
-    }
-  });
-}
-
-export function sendToUser(userId, message) {
-  const ws = clients.get(userId);
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify(message));
-  }
-}
-
-export function getOnlineAgents() {
-  return Array.from(clients.keys());
-}
+export function broadcastAgentStatus() { broadcastToAll({ type: 'agents_online', agents: Array.from(clients.keys()) }); }
+export function broadcastToAll(message) { const d = JSON.stringify(message); clients.forEach(ws => { if (ws.readyState === 1) ws.send(d); }); }
+export function sendToUser(userId, message) { const ws = clients.get(userId); if (ws && ws.readyState === 1) ws.send(JSON.stringify(message)); }

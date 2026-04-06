@@ -4,7 +4,6 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-// Get upcoming callbacks for current user
 router.get('/my', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -18,12 +17,10 @@ router.get('/my', requireAuth, async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    console.error('Get callbacks error:', err);
     res.status(500).json({ error: 'Failed to fetch callbacks' });
   }
 });
 
-// Get callbacks for a campaign
 router.get('/campaign/:campaignId', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -36,12 +33,10 @@ router.get('/campaign/:campaignId', requireAuth, async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    console.error('Get campaign callbacks error:', err);
     res.status(500).json({ error: 'Failed to fetch callbacks' });
   }
 });
 
-// Mark callback as completed
 router.put('/:id/complete', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -54,7 +49,6 @@ router.put('/:id/complete', requireAuth, async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    console.error('Complete callback error:', err);
     res.status(500).json({ error: 'Failed to complete callback' });
   }
 });

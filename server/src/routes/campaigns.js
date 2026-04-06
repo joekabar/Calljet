@@ -4,36 +4,31 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
-// Get all campaigns
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('campaigns')
-      .select(`
-        *,
-        campaign_users(user_id),
-        campaign_lead_fields(*)
-      `)
+      .select('*, campaign_users(user_id), campaign_lead_fields(*)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Add lead counts
     const campaignIds = data.map(c => c.id);
-    const { data: leadCounts } = await supabase
-      .from('leads')
-      .select('campaign_id, status')
-      .in('campaign_id', campaignIds);
+    let countsMap = {};
 
-    const countsMap = {};
-    (leadCounts || []).forEach(l => {
-      if (!countsMap[l.campaign_id]) {
-        countsMap[l.campaign_id] = { total: 0, unprocessed: 0, success: 0 };
-      }
-      countsMap[l.campaign_id].total++;
-      if (l.status === 'unprocessed') countsMap[l.campaign_id].unprocessed++;
-      if (l.status === 'success') countsMap[l.campaign_id].success++;
-    });
+    if (campaignIds.length > 0) {
+      const { data: leadCounts } = await supabase
+        .from('leads')
+        .select('campaign_id, status')
+        .in('campaign_id', campaignIds);
+
+      (leadCounts || []).forEach(l => {
+        if (!countsMap[l.campaign_id]) countsMap[l.campaign_id] = { total: 0, unprocessed: 0, success: 0 };
+        countsMap[l.campaign_id].total++;
+        if (l.status === 'unprocessed') countsMap[l.campaign_id].unprocessed++;
+        if (l.status === 'success') countsMap[l.campaign_id].success++;
+      });
+    }
 
     const enriched = data.map(c => ({
       ...c,
@@ -47,16 +42,11 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// Get single campaign
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('campaigns')
-      .select(`
-        *,
-        campaign_users(user_id, users(id, name, email, status)),
-        campaign_lead_fields(*)
-      `)
+      .select('*, campaign_users(user_id, users(id, name, email, status)), campaign_lead_fields(*)')
       .eq('id', req.params.id)
       .single();
 
@@ -68,7 +58,6 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Create campaign
 router.post('/', requireAdmin, async (req, res) => {
   try {
     const { name, caller_id, campaign_type, manuscript, max_call_attempts, max_ring_time, recording, lead_fields } = req.body;
@@ -76,8 +65,7 @@ router.post('/', requireAdmin, async (req, res) => {
     const { data: campaign, error } = await supabase
       .from('campaigns')
       .insert({
-        name,
-        caller_id,
+        name, caller_id,
         campaign_type: campaign_type || 'progressive',
         manuscript,
         max_call_attempts: max_call_attempts || 5,
@@ -85,12 +73,10 @@ router.post('/', requireAdmin, async (req, res) => {
         recording: recording || 'always',
         created_by: req.user.id
       })
-      .select()
-      .single();
+      .select().single();
 
     if (error) throw error;
 
-    // Create default lead fields if provided
     if (lead_fields && lead_fields.length > 0) {
       const fields = lead_fields.map((f, i) => ({
         campaign_id: campaign.id,
@@ -101,7 +87,6 @@ router.post('/', requireAdmin, async (req, res) => {
         editable: f.editable !== false,
         options: f.options || null
       }));
-
       await supabase.from('campaign_lead_fields').insert(fields);
     }
 
@@ -112,15 +97,13 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 });
 
-// Update campaign
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('campaigns')
       .update(req.body)
       .eq('id', req.params.id)
-      .select()
-      .single();
+      .select().single();
 
     if (error) throw error;
     res.json(data);
@@ -130,27 +113,27 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Assign users to campaign
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    const { error } = await supabase.from('campaigns').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete campaign error:', err);
+    res.status(500).json({ error: 'Failed to delete campaign' });
+  }
+});
+
 router.post('/:id/users', requireAdmin, async (req, res) => {
   try {
     const { user_ids } = req.body;
     const campaignId = req.params.id;
+    await supabase.from('campaign_users').delete().eq('campaign_id', campaignId);
 
-    // Remove existing
-    await supabase
-      .from('campaign_users')
-      .delete()
-      .eq('campaign_id', campaignId);
-
-    // Add new
     if (user_ids && user_ids.length > 0) {
-      const rows = user_ids.map(uid => ({
-        campaign_id: campaignId,
-        user_id: uid
-      }));
+      const rows = user_ids.map(uid => ({ campaign_id: campaignId, user_id: uid }));
       await supabase.from('campaign_users').insert(rows);
     }
-
     res.json({ success: true });
   } catch (err) {
     console.error('Assign users error:', err);
