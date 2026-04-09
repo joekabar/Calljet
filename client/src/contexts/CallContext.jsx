@@ -33,7 +33,22 @@ export function CallProvider({ children }) {
     setActiveCall(call);
     switch (call.state) {
       case 'trying': case 'requesting': setCallState('connecting'); break;
-      case 'recovering': case 'early': setCallState('ringing'); break;
+      case 'recovering': case 'early':
+  setCallState('ringing');
+  // Play a simple ringback beep
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 440;
+    gain.gain.value = 0.1;
+    osc.start();
+    setTimeout(() => osc.stop(), 1000);
+    setTimeout(() => { const o2 = ctx.createOscillator(); const g2 = ctx.createGain(); o2.connect(g2); g2.connect(ctx.destination); o2.frequency.value = 440; g2.gain.value = 0.1; o2.start(); setTimeout(() => o2.stop(), 1000); }, 2000);
+  } catch(e) {}
+  break;
       case 'active':
         setCallState('active'); callStartRef.current = Date.now(); startTimer();
         if (call.remoteStream && audioRef.current) { audioRef.current.srcObject = call.remoteStream; audioRef.current.play().catch(() => {}); }
