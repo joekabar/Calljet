@@ -24,7 +24,7 @@ export default function LeadPanel({ lead, campaign, leadData, onUpdateField, onF
         <div className="flex items-center gap-3 mb-2"><span className="text-xs text-gray-400 font-medium">Campaign</span><span className="text-sm font-semibold">{campaign?.name}</span></div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-400 font-medium">Lead status</span>
-          <span className={`status-badge ${getStatusBadge(lead.status)}`}>{lead.status.replace(/_/g, ' ')}</span>
+          <span className={`status-badge ${getStatusBadge(lead.status)}`}>{(lead.status || 'unknown').replace(/_/g, ' ')}</span>
           {lead.call_attempts > 0 && <span className="text-xs text-gray-400">{lead.call_attempts} attempt{lead.call_attempts !== 1 ? 's' : ''}</span>}
         </div>
       </div>

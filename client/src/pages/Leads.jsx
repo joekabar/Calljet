@@ -105,7 +105,7 @@ export default function Leads() {
                 <td className="px-4 py-3 font-mono text-xs">{lead.phone}</td>
                 <td className="px-4 py-3">{lead.data?.Bedrijf || lead.data?.bedrijf || '-'}</td>
                 <td className="px-4 py-3 text-gray-500">{lead.data?.stad || lead.data?.Stad || '-'}</td>
-                <td className="px-4 py-3"><span className={`status-badge ${getStatusColor(lead.status)}`}>{lead.status.replace(/_/g, ' ')}</span></td>
+                <td className="px-4 py-3"><span className={`status-badge ${getStatusColor(lead.status)}`}>{(lead.status || 'unknown').replace(/_/g, ' ')}</span></td>
                 <td className="px-4 py-3 text-gray-500">{lead.call_attempts}</td>
                 <td className="px-4 py-3 text-gray-400 text-xs">{lead.last_contacted_at ? new Date(lead.last_contacted_at).toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</td>
               </tr>
