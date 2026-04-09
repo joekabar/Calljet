@@ -79,7 +79,7 @@ export default function Dialer() {
         <div className="flex-1 flex flex-col overflow-auto">
           <div className="bg-white border-b px-6 py-2 flex items-center gap-1">
             <span className="text-sm font-medium text-gray-500 mr-4">
-              Lead data {currentLead && <span className="text-gray-400 text-xs ml-1">ID: {currentLead.id.slice(0, 8)}</span>}
+              Lead data {currentLead?.id && <span className="text-gray-400 text-xs ml-1">ID: {currentLead.id.slice(0, 8)}</span>}
             </span>
             {campaign?.manuscript && (
               <div className="flex bg-gray-100 rounded-lg p-0.5">
