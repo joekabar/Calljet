@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCall } from '../contexts/CallContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { api } from '../lib/api';
 import PhoneBar from '../components/PhoneBar';
 import LeadPanel from '../components/LeadPanel';
@@ -9,6 +10,9 @@ import ResultPanel from '../components/ResultPanel';
 import ActivityPanel from '../components/ActivityPanel';
 import ManuscriptPanel from '../components/ManuscriptPanel';
 import { Loader2 } from 'lucide-react';
+
+const COUNTDOWN_MS = 3000;
+const COUNTDOWN_TICK_MS = 50; // progress bar refresh rate
 
 export default function Dialer() {
   const { campaignId } = useParams();
@@ -23,7 +27,30 @@ export default function Dialer() {
   const [fetchingLead, setFetchingLead] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [activeTab, setActiveTab] = useState('data');
+  const [queueEmpty, setQueueEmpty] = useState(false);
 
+  // Agent-level auto-dial preferences (persisted per browser)
+  const [autoDialEnabled, setAutoDialEnabled] = useLocalStorage('calljet.autoDial.enabled', true);
+  const [autoDialDelayEnabled, setAutoDialDelayEnabled] = useLocalStorage('calljet.autoDial.delay', true);
+
+  // Countdown state: 0..1 progress; null = no countdown running
+  const [countdownProgress, setCountdownProgress] = useState(null);
+  const countdownTimerRef = useRef(null);
+  const countdownStartRef = useRef(null);
+  const countdownCancelledRef = useRef(false);
+
+  // Stable refs for values we read inside timers / event handlers
+  const currentLeadRef = useRef(null);
+  const campaignRef = useRef(null);
+  const callStateRef = useRef(callState);
+  useEffect(() => { currentLeadRef.current = currentLead; }, [currentLead]);
+  useEffect(() => { campaignRef.current = campaign; }, [campaign]);
+  useEffect(() => { callStateRef.current = callState; }, [callState]);
+
+  const isProgressive = campaign?.campaign_type === 'progressive';
+  const autoDialActive = isProgressive && autoDialEnabled;
+
+  // ---------- initial load ----------
   useEffect(() => { loadCampaign(); }, [campaignId]);
 
   useEffect(() => {
@@ -32,48 +59,186 @@ export default function Dialer() {
     }
     api.updateStatus('online').catch(console.error);
     return () => { api.updateStatus('offline').catch(console.error); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadCampaign() {
-    try { const c = await api.getCampaign(campaignId); setCampaign(c); setLoading(false); }
-    catch (err) { console.error('Load campaign error:', err); navigate('/'); }
+    try {
+      const c = await api.getCampaign(campaignId);
+      setCampaign(c);
+      setLoading(false);
+    } catch (err) {
+      console.error('Load campaign error:', err);
+      navigate('/');
+    }
   }
 
+  // ---------- countdown machinery ----------
+  function stopCountdown() {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    countdownStartRef.current = null;
+    setCountdownProgress(null);
+  }
+
+  const cancelCountdown = useCallback(() => {
+    countdownCancelledRef.current = true;
+    stopCountdown();
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    countdownCancelledRef.current = false;
+    countdownStartRef.current = Date.now();
+    setCountdownProgress(0);
+
+    countdownTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - countdownStartRef.current;
+      const pct = Math.min(elapsed / COUNTDOWN_MS, 1);
+      setCountdownProgress(pct);
+
+      if (elapsed >= COUNTDOWN_MS) {
+        stopCountdown();
+        if (countdownCancelledRef.current) return;
+        // Fire the call
+        const lead = currentLeadRef.current;
+        const camp = campaignRef.current;
+        if (lead && camp && callStateRef.current === 'idle') {
+          makeCall(lead.phone, { leadId: lead.id, campaignId: camp.id, callerId: camp.caller_id });
+        }
+      }
+    }, COUNTDOWN_TICK_MS);
+  }, [makeCall]);
+
+  // ---------- lead fetching ----------
   const fetchNextLead = useCallback(async () => {
     if (fetchingLead) return;
     setFetchingLead(true);
+    setQueueEmpty(false);
     try {
       const result = await api.getNextLead(campaignId);
-      if (result.lead) { setCurrentLead(result.lead); setLeadData(result.lead.data || {}); }
-      else { setCurrentLead(null); setLeadData({}); alert('No leads available in the queue'); }
-    } catch (err) { console.error('Fetch lead error:', err); }
-    finally { setFetchingLead(false); }
+      if (result.lead) {
+        setCurrentLead(result.lead);
+        setLeadData(result.lead.data || {});
+      } else {
+        setCurrentLead(null);
+        setLeadData({});
+        setQueueEmpty(true);
+      }
+    } catch (err) {
+      console.error('Fetch lead error:', err);
+    } finally {
+      setFetchingLead(false);
+    }
   }, [campaignId, fetchingLead]);
 
-  useEffect(() => { if (campaign && !currentLead) fetchNextLead(); }, [campaign]);
+  // Initial lead fetch after campaign loads
+  useEffect(() => {
+    if (campaign && !currentLead && !queueEmpty) fetchNextLead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign]);
 
+  // ---------- auto-dial trigger: when a new lead arrives and we're idle ----------
+  useEffect(() => {
+    if (!autoDialActive) return;
+    if (!currentLead) return;
+    if (callState !== 'idle') return;
+    if (connectionStatus !== 'connected') return;
+
+    // Kill any previous countdown and start fresh for this lead
+    cancelCountdown();
+    countdownCancelledRef.current = false;
+
+    if (autoDialDelayEnabled) {
+      startCountdown();
+    } else {
+      // Immediate dial
+      makeCall(currentLead.phone, {
+        leadId: currentLead.id,
+        campaignId: campaign.id,
+        callerId: campaign.caller_id
+      });
+    }
+
+    // Cleanup if lead changes or component unmounts mid-countdown
+    return () => { cancelCountdown(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLead?.id, autoDialActive, autoDialDelayEnabled, connectionStatus]);
+
+  // ---------- Escape hotkey: cancel countdown (current lead only) ----------
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== 'Escape') return;
+      if (countdownProgress !== null) {
+        cancelCountdown();
+      }
+      // During active call or idle: intentionally do nothing
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [countdownProgress, cancelCountdown]);
+
+  // ---------- manual actions ----------
   function dialLead() {
     if (!currentLead || callState !== 'idle') return;
-    makeCall(currentLead.phone, { leadId: currentLead.id, campaignId: campaign.id, callerId: campaign.caller_id });
+    cancelCountdown();
+    makeCall(currentLead.phone, {
+      leadId: currentLead.id,
+      campaignId: campaign.id,
+      callerId: campaign.caller_id
+    });
   }
 
   async function saveLead(saveData) {
     if (!currentLead) return;
     try {
       await api.saveLead(currentLead.id, { ...saveData, data: leadData });
-      setCurrentLead(null); setLeadData({});
+      setCurrentLead(null);
+      setLeadData({});
       await fetchNextLead();
-    } catch (err) { console.error('Save lead error:', err); alert('Failed to save lead'); }
+    } catch (err) {
+      console.error('Save lead error:', err);
+      alert('Failed to save lead');
+    }
   }
 
-  async function postponeLead() { if (!currentLead) return; await saveLead({ status: 'auto_redial' }); }
-  function updateLeadField(key, value) { setLeadData(prev => ({ ...prev, [key]: value })); }
+  async function postponeLead() {
+    if (!currentLead) return;
+    await saveLead({ status: 'auto_redial' });
+  }
 
-  if (loading) return <div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-calljet-600" /></div>;
+  function updateLeadField(key, value) {
+    setLeadData(prev => ({ ...prev, [key]: value }));
+  }
+
+  // Cleanup countdown on unmount
+  useEffect(() => () => stopCountdown(), []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-calljet-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <PhoneBar lead={currentLead} campaign={campaign} onDial={dialLead} onHangup={hangup} onToggleActivity={() => setShowActivity(!showActivity)} showActivity={showActivity} />
+      <PhoneBar
+        lead={currentLead}
+        campaign={campaign}
+        onDial={dialLead}
+        onHangup={hangup}
+        onToggleActivity={() => setShowActivity(!showActivity)}
+        showActivity={showActivity}
+        isProgressive={isProgressive}
+        autoDialEnabled={autoDialEnabled}
+        setAutoDialEnabled={setAutoDialEnabled}
+        autoDialDelayEnabled={autoDialDelayEnabled}
+        setAutoDialDelayEnabled={setAutoDialDelayEnabled}
+        countdownProgress={countdownProgress}
+      />
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-auto">
@@ -91,7 +256,13 @@ export default function Dialer() {
 
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-1 overflow-auto p-6">
-              {activeTab === 'data' ? (
+              {queueEmpty ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500 py-16">
+                  <p className="text-lg font-medium mb-2">Queue empty</p>
+                  <p className="text-sm text-gray-400 mb-4">No more leads available in this campaign.</p>
+                  <button onClick={() => navigate('/')} className="btn-secondary text-sm">Back to dashboard</button>
+                </div>
+              ) : activeTab === 'data' ? (
                 <LeadPanel lead={currentLead} campaign={campaign} leadData={leadData} onUpdateField={updateLeadField} onFetchNext={fetchNextLead} fetchingLead={fetchingLead} />
               ) : (
                 <ManuscriptPanel campaign={campaign} lead={currentLead} leadData={leadData} />
