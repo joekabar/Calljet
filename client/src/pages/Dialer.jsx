@@ -192,6 +192,8 @@ export default function Dialer() {
 
   async function saveLead(saveData) {
     if (!currentLead) return;
+    // Hang up any active/ringing call. Safe no-op when already idle.
+    hangup();
     try {
       await api.saveLead(currentLead.id, { ...saveData, data: leadData });
       setCurrentLead(null);

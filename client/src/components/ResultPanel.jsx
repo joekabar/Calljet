@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useCall } from '../contexts/CallContext';
+
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Select status' },{ value: 'success', label: 'Success' },{ value: 'not_interested', label: 'Not interested' },
@@ -9,7 +9,6 @@ const STATUS_OPTIONS = [
 const CALLBACK_PRESETS = [{ label: '15 min', minutes: 15 },{ label: '30 min', minutes: 30 },{ label: '1 hour', minutes: 60 },{ label: '3 hours', minutes: 180 },{ label: '1 day', minutes: 1440 },{ label: '2 days', minutes: 2880 },{ label: '1 week', minutes: 10080 }];
 
 export default function ResultPanel({ lead, campaign, onSave, onPostpone }) {
-  const { callState } = useCall();
   const [status, setStatus] = useState('');
   const [note, setNote] = useState('');
   const [callbackDate, setCallbackDate] = useState('');
@@ -55,7 +54,7 @@ export default function ResultPanel({ lead, campaign, onSave, onPostpone }) {
       <label className="flex items-center gap-2 text-sm text-gray-600 mb-4"><input type="checkbox" checked={blocklist} onChange={e => setBlocklist(e.target.checked)} className="rounded" />Blocklist this lead</label>
       <div className="mt-auto space-y-2">
         <button onClick={handleSave} disabled={!status || saving} className="btn-success w-full py-3 text-base">{saving ? 'Saving...' : 'Save lead'}</button>
-        <button onClick={onPostpone} disabled={callState === 'active'} className="w-full py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors text-sm">Answering machine (aut. callback)</button>
+        <button onClick={onPostpone} className="w-full py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors text-sm">Answering machine (aut. callback)</button>
         <label className="flex items-center gap-2 text-xs text-gray-400 mt-2"><input type="checkbox" className="rounded" />Close dialer after this lead</label>
       </div>
     </div>
