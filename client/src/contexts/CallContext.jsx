@@ -103,6 +103,7 @@ export function CallProvider({ children }) {
 
   const makeCall = useCallback(async (phoneNumber, { leadId, campaignId, callerId } = {}) => {
     if (!client || callState !== 'idle') return;
+    if (!phoneNumber) { console.error('makeCall aborted: no phone number'); return; }
     try {
       const rec = await api.logCall({
         lead_id: leadId,

@@ -7,6 +7,18 @@ export async function requireAuth(req, res, next) {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return res.status(401).json({ error: 'Invalid or expired token' });
     const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single();
+    if (!profile) {
+      const { data: newProfile, error: insertErr } = await supabase.from('users').insert({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.email.split('@')[0],
+        display_name: user.user_metadata?.name?.split(' ')[0] || user.email.split('@')[0],
+        role: 'agent'
+      }).select().single();
+      if (insertErr) { console.error('Auto-create user profile failed:', insertErr); return res.status(500).json({ error: 'Failed to create user profile' }); }
+      req.user = { ...user, profile: newProfile };
+      return next();
+    }
     req.user = { ...user, profile };
     next();
   } catch (err) { return res.status(401).json({ error: 'Authentication failed' }); }

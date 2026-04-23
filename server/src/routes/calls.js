@@ -6,6 +6,7 @@ const router = Router();
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { lead_id, campaign_id, phone_number, telnyx_call_id, direction, caller_id_used } = req.body;
+    if (!phone_number) return res.status(400).json({ error: 'phone_number is required' });
     const { data, error } = await supabase.from('calls').insert({ lead_id, user_id: req.user.id, campaign_id, phone_number, telnyx_call_id, direction: direction || 'outbound', caller_id_used }).select().single();
     if (error) throw error;
     if (lead_id) {
