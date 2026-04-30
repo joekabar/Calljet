@@ -79,6 +79,22 @@ export default function PhoneBar({
             <Grid3X3 className="w-4 h-4" />
           </button>
           {showKeypad && (
+            <div className="absolute top-full mt-2 left-0 bg-white rounded-xl shadow-lg border p-3 z-50 w-44">
+              <div className="grid grid-cols-3 gap-1">
+                {dtmfKeys.map(key => (
+                  <button
+                    key={key}
+                    onClick={() => sendDTMF(key)}
+                    className="h-12 w-full rounded-lg bg-gray-100 hover:bg-gray-200 text-lg font-medium text-gray-900 transition-colors flex items-center justify-center"
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {showKeypad && (
             <div className="absolute top-full mt-2 left-0 bg-white rounded-xl shadow-lg border p-3 z-50">
               <div className="grid grid-cols-3 gap-1">
                 {dtmfKeys.map(key => (
