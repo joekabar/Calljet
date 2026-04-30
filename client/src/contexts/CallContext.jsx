@@ -52,25 +52,7 @@ export function CallProvider({ children }) {
         // oscillator leaked AudioContexts and fired on reconnect events.
         // TODO: implement with a single <audio loop> element + ring.ogg.
         break;
-
-      case 'active':
-        setCallState('active');
-        callStartRef.current = Date.now();
-        startTimer();
-  
-        // Clamp jitter buffer to prevent NetEQ runaway
-        const pc = call.peer?.instance || call.peer?.peer;
-        if (pc?.getReceivers) {
-          pc.getReceivers().forEach(r => {
-            if (r.track?.kind === 'audio') {
-              r.playoutDelayHint = 0.08; // 80ms max
-            }
-          });
-        } 
-  
-        if (call.remoteStream && audioRef.current) { ... }
-        break;
-
+                
       case 'active':
         setCallState('active');
         callStartRef.current = Date.now();
