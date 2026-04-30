@@ -52,6 +52,25 @@ export function CallProvider({ children }) {
         // oscillator leaked AudioContexts and fired on reconnect events.
         // TODO: implement with a single <audio loop> element + ring.ogg.
         break;
+
+      case 'active':
+        setCallState('active');
+        callStartRef.current = Date.now();
+        startTimer();
+  
+        // Clamp jitter buffer to prevent NetEQ runaway
+        const pc = call.peer?.instance || call.peer?.peer;
+        if (pc?.getReceivers) {
+          pc.getReceivers().forEach(r => {
+            if (r.track?.kind === 'audio') {
+              r.playoutDelayHint = 0.08; // 80ms max
+            }
+          });
+        } 
+  
+          if (call.remoteStream && audioRef.current) { ... }
+          break;
+
       case 'active':
         setCallState('active');
         callStartRef.current = Date.now();
@@ -115,13 +134,20 @@ export function CallProvider({ children }) {
       // Sync ref before SDK call so any immediate event sees the record.
       currentCallRecordRef.current = rec;
       setCurrentCallRecord(rec);
-
       const call = client.newCall({
         destinationNumber: phoneNumber,
         callerNumber: callerId || import.meta.env.VITE_TELNYX_CALLER_ID,
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16
+        },
         video: false
       });
+      
       activeCallRef.current = call;
       setActiveCall(call);
       setCallState('connecting');
