@@ -68,8 +68,8 @@ export function CallProvider({ children }) {
           });
         } 
   
-          if (call.remoteStream && audioRef.current) { ... }
-          break;
+        if (call.remoteStream && audioRef.current) { ... }
+        break;
 
       case 'active':
         setCallState('active');
