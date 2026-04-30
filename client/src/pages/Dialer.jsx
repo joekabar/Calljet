@@ -28,6 +28,7 @@ export default function Dialer() {
   const [showActivity, setShowActivity] = useState(false);
   const [activeTab, setActiveTab] = useState('data');
   const [queueEmpty, setQueueEmpty] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   // Agent-level auto-dial preferences (persisted per browser)
   const [autoDialEnabled, setAutoDialEnabled] = useLocalStorage('calljet.autoDial.enabled', true);
@@ -116,6 +117,7 @@ export default function Dialer() {
     if (fetchingLead) return;
     setFetchingLead(true);
     setQueueEmpty(false);
+    setFetchError(null);
     try {
       const result = await api.getNextLead(campaignId);
       if (result.lead) {
@@ -128,6 +130,7 @@ export default function Dialer() {
       }
     } catch (err) {
       console.error('Fetch lead error:', err);
+      setFetchError('Failed to load next lead. Check your connection and try again.');
     } finally {
       setFetchingLead(false);
     }
@@ -258,7 +261,12 @@ export default function Dialer() {
 
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-1 overflow-auto p-6">
-              {queueEmpty ? (
+              {fetchError ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500 py-16">
+                  <p className="text-base font-medium mb-2 text-red-600">{fetchError}</p>
+                  <button onClick={fetchNextLead} className="btn-secondary text-sm mt-2">Retry</button>
+                </div>
+              ) : queueEmpty ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500 py-16">
                   <p className="text-lg font-medium mb-2">Queue empty</p>
                   <p className="text-sm text-gray-400 mb-4">No more leads available in this campaign.</p>

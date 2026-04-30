@@ -14,6 +14,7 @@ export default function Leads() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [importing, setImporting] = useState(false);
   const [campaign, setCampaign] = useState(null);
   const fileRef = useRef(null);
@@ -26,13 +27,14 @@ export default function Leads() {
 
   async function loadLeads() {
     setLoading(true);
+    setError(null);
     try {
       const params = { page, limit };
       if (statusFilter) params.status = statusFilter;
       if (search) params.search = search;
       const data = await api.getLeads(campaignId, params);
       setLeads(data.leads || []); setTotal(data.total || 0);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch (err) { console.error(err); setError('Failed to load leads. Please try again.'); } finally { setLoading(false); }
   }
 
   async function handleImport(e) {
@@ -102,6 +104,7 @@ export default function Leads() {
           </thead>
           <tbody className="divide-y">
             {loading ? <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">Loading...</td></tr>
+            : error ? <tr><td colSpan={6} className="px-4 py-12 text-center text-red-500">{error} <button onClick={loadLeads} className="underline ml-2">Retry</button></td></tr>
             : leads.length === 0 ? <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">No leads found</td></tr>
             : leads.map(lead => (
               <tr key={lead.id} className="hover:bg-gray-50">

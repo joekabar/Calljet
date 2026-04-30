@@ -11,7 +11,14 @@ async function request(method, path, body = null) {
   const headers = await getAuthHeaders();
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
-  const res = await fetch(`${API_URL}/api${path}`, options);
+  let res = await fetch(`${API_URL}/api${path}`, options);
+  if (res.status === 401) {
+    await supabase.auth.refreshSession();
+    const retryHeaders = await getAuthHeaders();
+    const retryOptions = { method, headers: retryHeaders };
+    if (body) retryOptions.body = JSON.stringify(body);
+    res = await fetch(`${API_URL}/api${path}`, retryOptions);
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(err.error || 'Request failed');

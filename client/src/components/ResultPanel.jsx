@@ -18,7 +18,12 @@ export default function ResultPanel({ lead, campaign, onSave, onPostpone }) {
   const [saving, setSaving] = useState(false);
   const isCallback = status.includes('callback');
 
-  function applyPreset(m) { const d = new Date(Date.now() + m * 60000); setCallbackDate(d.toISOString().split('T')[0]); setCallbackTime(d.toTimeString().slice(0, 5)); }
+  function applyPreset(m) {
+    const d = new Date(Date.now() + m * 60000);
+    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    setCallbackDate(localDate);
+    setCallbackTime(d.toTimeString().slice(0, 5));
+  }
 
   async function handleSave() {
     if (!status) return alert('Please select a status');

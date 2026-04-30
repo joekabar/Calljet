@@ -10,6 +10,7 @@ export default function Campaigns() {
   const [campaigns, setCampaigns] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [form, setForm] = useState({
     name: '', caller_id: '', campaign_type: 'progressive', manuscript: '',
     max_call_attempts: 5, max_ring_time: 30, recording: 'always',
@@ -25,7 +26,8 @@ export default function Campaigns() {
   useEffect(() => { loadCampaigns(); }, []);
 
   async function loadCampaigns() {
-    try { setCampaigns(await api.getCampaigns()); } catch (err) { console.error(err); } finally { setLoading(false); }
+    setError(null);
+    try { setCampaigns(await api.getCampaigns()); } catch (err) { console.error(err); setError('Failed to load campaigns. Please try again.'); } finally { setLoading(false); }
   }
 
   async function handleCreate(e) {
@@ -95,6 +97,7 @@ export default function Campaigns() {
         </div>
       )}
 
+      {error && <div className="flex items-center justify-between p-4 mb-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"><span>{error}</span><button onClick={loadCampaigns} className="underline">Retry</button></div>}
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-calljet-600" /></div>
       ) : (

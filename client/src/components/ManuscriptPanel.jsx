@@ -1,3 +1,12 @@
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export default function ManuscriptPanel({ campaign, lead, leadData }) {
   const content = campaign?.manuscript;
 
@@ -13,10 +22,13 @@ export default function ManuscriptPanel({ campaign, lead, leadData }) {
     });
   }
 
+  // Escape HTML entities then convert newlines to <br> — prevents XSS
+  const safeHtml = escapeHtml(rendered).replace(/\n/g, '<br>');
+
   return (
     <div>
       <h3 className="font-semibold text-sm text-gray-500 uppercase tracking-wide mb-4">Call Script</h3>
-      <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: rendered }} />
+      <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: safeHtml }} />
     </div>
   );
 }

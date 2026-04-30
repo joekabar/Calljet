@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [campaigns, setCampaigns] = useState([]);
   const [callbacks, setCallbacks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { connect, connectionStatus } = useCall();
   const { profile } = useAuth();
@@ -16,10 +17,11 @@ export default function Dashboard() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
+    setError(null);
     try {
       const [c, cb] = await Promise.all([api.getCampaigns(), api.getMyCallbacks()]);
       setCampaigns(c); setCallbacks(cb);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch (err) { console.error(err); setError('Failed to load dashboard. Please try again.'); } finally { setLoading(false); }
   }
 
   function startDialing(campaignId) {
@@ -28,6 +30,7 @@ export default function Dashboard() {
   }
 
   if (loading) return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-calljet-600" /></div>;
+  if (error) return <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-500"><p>{error}</p><button onClick={loadData} className="btn-secondary text-sm">Retry</button></div>;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

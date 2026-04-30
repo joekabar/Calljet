@@ -9,12 +9,14 @@ export default function ActivityPanel({ lead, onClose }) {
   const [notes, setNotes] = useState([]);
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => { if (lead?.id) loadActivity(); }, [lead?.id]);
   async function loadActivity() {
     setLoading(true);
+    setError(null);
     try { const d = await api.getLead(lead.id); setActivity(d.activity||[]); setNotes(d.notes||[]); setCalls(d.calls||[]); }
-    catch (err) { console.error(err); } finally { setLoading(false); }
+    catch (err) { console.error(err); setError('Failed to load activity.'); } finally { setLoading(false); }
   }
 
   const tabs = [{ id: 'timeline', label: 'Timeline' },{ id: 'notes', label: 'Notes' },{ id: 'calls', label: 'Calls' }];
@@ -27,7 +29,7 @@ export default function ActivityPanel({ lead, onClose }) {
       <div className="flex items-center justify-between p-4 border-b"><h3 className="font-semibold">Activity</h3><button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X className="w-4 h-4"/></button></div>
       <div className="flex border-b px-4">{tabs.map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`px-3 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab===t.id?'border-calljet-600 text-calljet-600':'border-transparent text-gray-500 hover:text-gray-700'}`}>{t.label}</button>)}</div>
       <div className="flex-1 overflow-auto p-4">
-        {loading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-calljet-600"/></div> : <>
+        {loading ? <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-calljet-600"/></div> : error ? <div className="text-center py-8 text-red-500 text-sm">{error} <button onClick={loadActivity} className="underline">Retry</button></div> : <>
           {activeTab==='timeline' && <div className="space-y-4">{activity.length===0&&<p className="text-sm text-gray-400 text-center py-4">No activity yet</p>}{activity.map(item=><div key={item.id} className="flex gap-3"><div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${getActionColor(item.action)}`}>{getActionIcon(item.action)}</div><div className="flex-1 min-w-0"><p className="text-sm"><span className="font-medium">{item.users?.name||'System'}</span>{item.action==='lead_saved'&&<> saved lead as <span className="font-medium">{fmtStatus(item.details?.status)}</span></>}{item.action==='call'&&<> called <span className="font-mono text-xs">{item.details?.phone_number}</span></>}{item.action==='note'&&' left a note'}</p><p className="text-xs text-gray-400 mt-0.5">{formatDistanceToNow(new Date(item.created_at),{addSuffix:true})}</p>{item.details?.callback_time&&<p className="text-xs text-blue-600 mt-1">Next call @ {new Date(item.details.callback_time).toLocaleString('nl-BE',{dateStyle:'short',timeStyle:'short'})}</p>}</div></div>)}</div>}
           {activeTab==='notes' && <div className="space-y-3">{notes.length===0&&<p className="text-sm text-gray-400 text-center py-4">No notes yet</p>}{notes.map(n=><div key={n.id} className="bg-gray-50 rounded-lg p-3"><p className="text-sm">{n.content}</p><div className="flex items-center gap-2 mt-2 text-xs text-gray-400"><span className="font-medium text-gray-500">{n.users?.name}</span><span>·</span><span>{formatDistanceToNow(new Date(n.created_at),{addSuffix:true})}</span></div></div>)}</div>}
           {activeTab==='calls' && <div className="space-y-3">{calls.length===0&&<p className="text-sm text-gray-400 text-center py-4">No calls yet</p>}{calls.map(c=><div key={c.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"><div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${c.disposition==='answered'?'bg-green-100 text-green-600':c.disposition==='no_answer'?'bg-gray-100 text-gray-500':'bg-red-100 text-red-500'}`}><Phone className="w-3.5 h-3.5"/></div><div className="flex-1 min-w-0"><p className="text-sm font-mono">{c.phone_number}</p><p className="text-xs text-gray-400">{c.disposition||'pending'} · {c.duration_seconds||0}s</p></div><span className="text-xs text-gray-400">{new Date(c.created_at).toLocaleString('nl-BE',{dateStyle:'short',timeStyle:'short'})}</span></div>)}</div>}

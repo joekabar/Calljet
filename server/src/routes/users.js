@@ -4,12 +4,17 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
-router.post('/register', async (req, res) => {
+router.post('/register', requireAuth, async (req, res) => {
   try {
-    const { id, email, name, display_name, role } = req.body;
-    const { data, error } = await supabase.from('users').insert({ id, email, name, display_name: display_name || name.split(' ')[0], role: role || 'agent' }).select().single();
-    if (error) throw error;
-    res.status(201).json(data);
+    // Profile auto-created by requireAuth middleware; update with name from signup form
+    const { name } = req.body;
+    if (name) {
+      const display_name = name.split(' ')[0];
+      const { data, error } = await supabase.from('users').update({ name, display_name }).eq('id', req.user.id).select().single();
+      if (error) throw error;
+      return res.status(200).json(data);
+    }
+    res.status(200).json(req.user.profile);
   } catch (err) { console.error('Register error:', err); res.status(500).json({ error: 'Failed to register user' }); }
 });
 
