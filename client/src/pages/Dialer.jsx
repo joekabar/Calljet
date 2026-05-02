@@ -29,6 +29,8 @@ export default function Dialer() {
   const [activeTab, setActiveTab] = useState('data');
   const [queueEmpty, setQueueEmpty] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+  const [phoneNumbers, setPhoneNumbers] = useState([]);
+  const [selectedCallerId, setSelectedCallerId] = useState(null);
 
   // Agent-level auto-dial preferences (persisted per browser)
   const [autoDialEnabled, setAutoDialEnabled] = useLocalStorage('calljet.autoDial.enabled', true);
@@ -52,7 +54,7 @@ export default function Dialer() {
   const autoDialActive = isProgressive && autoDialEnabled;
 
   // ---------- initial load ----------
-  useEffect(() => { loadCampaign(); }, [campaignId]);
+  useEffect(() => { loadCampaign(); loadPhoneNumbers(); }, [campaignId]);
 
   useEffect(() => {
     if (connectionStatus !== 'connected') {
@@ -62,6 +64,10 @@ export default function Dialer() {
     return () => { api.updateStatus('offline').catch(console.error); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadPhoneNumbers() {
+    try { setPhoneNumbers(await api.getPhoneNumbers()); } catch { /* non-critical */ }
+  }
 
   async function loadCampaign() {
     try {
@@ -106,7 +112,7 @@ export default function Dialer() {
         const lead = currentLeadRef.current;
         const camp = campaignRef.current;
         if (lead && camp && callStateRef.current === 'idle') {
-          makeCall(lead.phone, { leadId: lead.id, campaignId: camp.id, callerId: camp.caller_id });
+          makeCall(lead.phone, { leadId: lead.id, campaignId: camp.id, callerId: selectedCallerId || camp.caller_id });
         }
       }
     }, COUNTDOWN_TICK_MS);
@@ -156,11 +162,10 @@ export default function Dialer() {
     if (autoDialDelayEnabled) {
       startCountdown();
     } else {
-      // Immediate dial
       makeCall(currentLead.phone, {
         leadId: currentLead.id,
         campaignId: campaign.id,
-        callerId: campaign.caller_id
+        callerId: activeCallerId()
       });
     }
 
@@ -182,6 +187,27 @@ export default function Dialer() {
     return () => window.removeEventListener('keydown', onKey);
   }, [countdownProgress, cancelCountdown]);
 
+  function activeCallerId() {
+    return selectedCallerId || campaign?.caller_id;
+  }
+
+  function getNextAutoRedialTime() {
+    const DELAY_MS = 240 * 60 * 1000;
+    const START_H = 9, END_H = 18;
+    const d = new Date(Date.now() + DELAY_MS);
+    for (let i = 0; i < 10; i++) {
+      const day = d.getDay();
+      const h = d.getHours();
+      if (day === 0 || day === 6) {
+        d.setDate(d.getDate() + (day === 0 ? 1 : 2));
+        d.setHours(START_H, 0, 0, 0);
+      } else if (h < START_H) { d.setHours(START_H, 0, 0, 0); break; }
+      else if (h >= END_H) { d.setDate(d.getDate() + 1); d.setHours(START_H, 0, 0, 0); }
+      else break;
+    }
+    return d.toISOString();
+  }
+
   // ---------- manual actions ----------
   function dialLead() {
     if (!currentLead || callState !== 'idle') return;
@@ -189,7 +215,7 @@ export default function Dialer() {
     makeCall(currentLead.phone, {
       leadId: currentLead.id,
       campaignId: campaign.id,
-      callerId: campaign.caller_id
+      callerId: activeCallerId()
     });
   }
 
@@ -210,7 +236,7 @@ export default function Dialer() {
 
   async function postponeLead() {
     if (!currentLead) return;
-    await saveLead({ status: 'auto_redial' });
+    await saveLead({ status: 'auto_redial', callback_time: getNextAutoRedialTime() });
   }
 
   function updateLeadField(key, value) {
@@ -243,6 +269,9 @@ export default function Dialer() {
         autoDialDelayEnabled={autoDialDelayEnabled}
         setAutoDialDelayEnabled={setAutoDialDelayEnabled}
         countdownProgress={countdownProgress}
+        phoneNumbers={phoneNumbers}
+        selectedCallerId={selectedCallerId}
+        setSelectedCallerId={setSelectedCallerId}
       />
 
       <div className="flex-1 flex overflow-hidden">

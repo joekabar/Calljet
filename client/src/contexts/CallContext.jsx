@@ -18,6 +18,8 @@ export function CallProvider({ children }) {
   const timerRef = useRef(null);
   const callStartRef = useRef(null);
   const audioRef = useRef(null);
+  const ringCtxRef = useRef(null);
+  const ringIntervalRef = useRef(null);
 
   // Mirror state in refs so the Telnyx event listener (registered once in
   // connect) can read the latest values without stale closure issues.
@@ -26,6 +28,37 @@ export function CallProvider({ children }) {
 
   useEffect(() => { currentCallRecordRef.current = currentCallRecord; }, [currentCallRecord]);
   useEffect(() => { activeCallRef.current = activeCall; }, [activeCall]);
+
+  function startRingTone() {
+    if (!ringCtxRef.current || ringCtxRef.current.state === 'closed') {
+      ringCtxRef.current = new AudioContext();
+    }
+    const ctx = ringCtxRef.current;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    function burst() {
+      [400, 450].forEach(freq => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.value = 0.07;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 1);
+      });
+    }
+
+    burst();
+    ringIntervalRef.current = setInterval(burst, 5000);
+  }
+
+  function stopRingTone() {
+    clearInterval(ringIntervalRef.current);
+    ringIntervalRef.current = null;
+    if (ringCtxRef.current) ringCtxRef.current.suspend().catch(() => {});
+  }
 
   function startTimer() {
     stopTimer();
@@ -48,12 +81,11 @@ export function CallProvider({ children }) {
       case 'recovering':
       case 'early':
         setCallState('ringing');
-        // Ringback tone intentionally not implemented here. Previous inline
-        // oscillator leaked AudioContexts and fired on reconnect events.
-        // TODO: implement with a single <audio loop> element + ring.ogg.
+        startRingTone();
         break;
                 
       case 'active':
+        stopRingTone();
         setCallState('active');
         callStartRef.current = Date.now();
         startTimer();
@@ -64,6 +96,7 @@ export function CallProvider({ children }) {
         break;
       case 'hangup':
       case 'destroy': {
+        stopRingTone();
         stopTimer();
         setCallState('idle');
         setActiveCall(null);
@@ -170,6 +203,7 @@ export function CallProvider({ children }) {
   useEffect(() => {
     return () => {
       stopTimer();
+      stopRingTone();
       if (client) client.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

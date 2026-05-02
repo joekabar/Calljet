@@ -32,6 +32,35 @@ router.get('/campaign/:campaignId', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/export/:campaignId', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('campaign_id', req.params.campaignId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    const dataKeys = [...new Set(data.flatMap(l => Object.keys(l.data || {})))];
+    const headers = ['phone', 'status', 'call_attempts', 'last_contacted_at', 'callback_time', ...dataKeys];
+    const escape = v => {
+      const s = v == null ? '' : String(v);
+      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = data.map(l =>
+      [l.phone, l.status, l.call_attempts, l.last_contacted_at || '', l.callback_time || '',
+       ...dataKeys.map(k => escape(l.data?.[k]))].join(',')
+    );
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads-export.csv"');
+    res.send('﻿' + [headers.join(','), ...rows].join('\n'));
+  } catch (err) {
+    console.error('Export leads error:', err);
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const { data: lead, error } = await supabase.from('leads').select('*').eq('id', req.params.id).single();
@@ -82,7 +111,7 @@ router.put('/:id/save', requireAuth, async (req, res) => {
       await supabase.from('notes').insert({ lead_id: leadId, user_id: userId, content: note });
     }
 
-    if (callback_time) {
+    if (callback_time && status !== 'auto_redial') {
       await supabase.from('callbacks').update({ completed: true, completed_at: new Date().toISOString() }).eq('lead_id', leadId).eq('completed', false);
       await supabase.from('callbacks').insert({ lead_id: leadId, user_id: callback_type === 'shared' ? null : userId, campaign_id: lead.campaign_id, scheduled_at: callback_time, callback_type: callback_type || 'private' });
     }

@@ -6,7 +6,8 @@ export default function PhoneBar({
   lead, campaign, onDial, onHangup, onToggleActivity, showActivity,
   isProgressive, autoDialEnabled, setAutoDialEnabled,
   autoDialDelayEnabled, setAutoDialDelayEnabled,
-  countdownProgress
+  countdownProgress,
+  phoneNumbers, selectedCallerId, setSelectedCallerId
 }) {
   const { callState, formattedDuration, isMuted, toggleMute, sendDTMF, connectionStatus } = useCall();
   const [showKeypad, setShowKeypad] = useState(false);
@@ -94,15 +95,6 @@ export default function PhoneBar({
             </div>
           )}
           
-          {showKeypad && (
-            <div className="absolute top-full mt-2 left-0 bg-white rounded-xl shadow-lg border p-3 z-50">
-              <div className="grid grid-cols-3 gap-1">
-                {dtmfKeys.map(key => (
-                  <button key={key} onClick={() => sendDTMF(key)} className="w-12 h-12 rounded-lg bg-gray-50 hover:bg-gray-100 text-lg font-medium transition-colors">{key}</button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Auto-dial controls — only for progressive campaigns */}
@@ -133,7 +125,21 @@ export default function PhoneBar({
             <span className={`status-badge ${isActive ? 'bg-green-100 text-green-700' : isConnecting || countingDown ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
               {getStatusText()}
             </span>
-            {campaign?.caller_id && <span className="text-xs text-gray-400">Caller ID: {campaign.caller_id}</span>}
+            {phoneNumbers?.length > 0 ? (
+              <select
+                value={selectedCallerId || ''}
+                onChange={e => setSelectedCallerId(e.target.value || null)}
+                disabled={isActive || isConnecting}
+                className="text-xs border border-gray-200 rounded-md px-2 py-1 text-gray-600 bg-white disabled:opacity-50"
+              >
+                <option value="">{campaign?.caller_id ? `Default (${campaign.caller_id})` : 'Campaign default'}</option>
+                {phoneNumbers.map(n => (
+                  <option key={n.id} value={n.number}>{n.label} ({n.number})</option>
+                ))}
+              </select>
+            ) : (
+              campaign?.caller_id && <span className="text-xs text-gray-400">Caller ID: {campaign.caller_id}</span>
+            )}
           </div>
         </div>
 

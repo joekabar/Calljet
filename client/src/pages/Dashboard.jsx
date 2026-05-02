@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [callbacks, setCallbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPaused, setShowPaused] = useState(false);
   const navigate = useNavigate();
   const { connect, connectionStatus } = useCall();
   const { profile } = useAuth();
@@ -54,9 +55,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {campaigns.map(campaign => (
-          <div key={campaign.id} className="card p-5 hover:shadow-md transition-shadow">
+      {(() => {
+        const active = campaigns.filter(c => c.active);
+        const paused = campaigns.filter(c => !c.active);
+        const CampaignCard = ({ campaign, dim }) => (
+          <div key={campaign.id} className={`card p-5 hover:shadow-md transition-shadow ${dim ? 'opacity-50' : ''}`}>
             <div className="flex items-start justify-between mb-4">
               <div><h3 className="font-semibold text-lg">{campaign.name}</h3><p className="text-sm text-gray-500 capitalize">{campaign.campaign_type}</p></div>
               <span className={`status-badge ${campaign.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{campaign.active ? 'Active' : 'Paused'}</span>
@@ -72,9 +75,29 @@ export default function Dashboard() {
               <button onClick={() => navigate(`/leads/${campaign.id}`)} className="btn-secondary flex items-center justify-center gap-2 text-sm"><List className="w-4 h-4" /></button>
             </div>
           </div>
-        ))}
-        {campaigns.length === 0 && <div className="col-span-full text-center py-12 text-gray-400"><Megaphone className="w-12 h-12 mx-auto mb-3 opacity-30" /><p className="font-medium">No campaigns yet</p><p className="text-sm">Create your first campaign to get started</p></div>}
-      </div>
+        );
+        return (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {active.map(c => <CampaignCard key={c.id} campaign={c} />)}
+              {active.length === 0 && paused.length === 0 && <div className="col-span-full text-center py-12 text-gray-400"><Megaphone className="w-12 h-12 mx-auto mb-3 opacity-30" /><p className="font-medium">No campaigns yet</p><p className="text-sm">Create your first campaign to get started</p></div>}
+              {active.length === 0 && paused.length > 0 && <div className="col-span-full text-center py-12 text-gray-400"><p className="font-medium">No active campaigns</p><p className="text-sm">Activate a campaign to start dialing</p></div>}
+            </div>
+            {paused.length > 0 && (
+              <div className="mt-6">
+                <button onClick={() => setShowPaused(p => !p)} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                  {showPaused ? 'Hide paused campaigns' : `Show ${paused.length} paused campaign${paused.length > 1 ? 's' : ''}`}
+                </button>
+                {showPaused && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                    {paused.map(c => <CampaignCard key={c.id} campaign={c} dim />)}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

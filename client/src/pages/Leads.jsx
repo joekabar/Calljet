@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Upload, Search, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Upload, Download, Search, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 export default function Leads() {
   const { campaignId } = useParams();
@@ -74,6 +74,7 @@ export default function Leads() {
       <div className="flex items-center justify-between mb-6">
         <div><h1 className="text-2xl font-bold">Leads</h1><p className="text-sm text-gray-500">{campaign?.name} · {total} total leads</p></div>
         <div className="flex gap-2">
+          {isAdmin && total > 0 && <button onClick={() => api.exportLeads(campaignId).catch(err => alert(err.message))} className="btn-secondary text-sm flex items-center gap-1"><Download className="w-4 h-4" /> Export CSV</button>}
           {isAdmin && total > 0 && <button onClick={handleDeleteAll} className="btn-danger text-sm flex items-center gap-1"><Trash2 className="w-4 h-4" /> Delete all</button>}
           <input type="file" ref={fileRef} accept=".csv,.tsv" className="hidden" onChange={handleImport} />
           {isAdmin && <button onClick={() => fileRef.current?.click()} disabled={importing} className="btn-primary flex items-center gap-2"><Upload className="w-4 h-4" />{importing ? 'Importing...' : 'Import CSV'}</button>}

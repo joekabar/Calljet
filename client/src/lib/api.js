@@ -20,8 +20,10 @@ async function request(method, path, body = null) {
     res = await fetch(`${API_URL}/api${path}`, retryOptions);
   }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(err.error || 'Request failed');
+    const data = await res.json().catch(() => ({ error: 'Request failed' }));
+    const err = new Error(data.error || 'Request failed');
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -70,10 +72,27 @@ export const api = {
   getCampaignCallbacks: (campaignId) => request('GET', `/callbacks/campaign/${campaignId}`),
   completeCallback: (id) => request('PUT', `/callbacks/${id}/complete`),
 
+  // Phone numbers
+  getPhoneNumbers: () => request('GET', '/phone-numbers'),
+
+  // Export leads (file download — needs raw fetch with auth header)
+  exportLeads: async (campaignId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${API_URL}/api/leads/export/${campaignId}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'leads-export.csv'; a.click();
+    URL.revokeObjectURL(url);
+  },
+
   // Users
-  registerUser: (data) => request('POST', '/users/register', data),
   getMe: () => request('GET', '/users/me'),
   getUsers: () => request('GET', '/users'),
+  createUser: (data) => request('POST', '/users', data),
   updateUser: (id, data) => request('PUT', `/users/${id}`, data),
   deleteUser: (id) => request('DELETE', `/users/${id}`),
   updateStatus: (status, pauseReason) => request('PUT', '/users/status', { status, pause_reason: pauseReason }),

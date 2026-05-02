@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Trash2, Shield, User, Edit2, Check, X } from 'lucide-react';
+import { Trash2, Shield, Edit2, Check, X, Plus } from 'lucide-react';
 
 export default function Users() {
   const { profile } = useAuth();
@@ -9,6 +9,10 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'agent' });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
   const isAdmin = profile?.role === 'admin';
 
   useEffect(() => { loadUsers(); }, []);
@@ -23,17 +27,30 @@ export default function Users() {
   }
 
   async function saveEdit(id) {
-    try {
-      await api.updateUser(id, editForm);
-      setEditingId(null);
-      loadUsers();
-    } catch (err) { alert('Failed: ' + err.message); }
+    try { await api.updateUser(id, editForm); setEditingId(null); loadUsers(); }
+    catch (err) { alert('Failed: ' + err.message); }
   }
 
   async function handleDelete(id, name) {
     if (id === profile?.id) return alert("You can't delete your own account");
-    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete user "${name}"? They will immediately lose access. This cannot be undone.`)) return;
     try { await api.deleteUser(id); loadUsers(); } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreating(true);
+    setCreateError('');
+    try {
+      await api.createUser(createForm);
+      setShowCreate(false);
+      setCreateForm({ name: '', email: '', password: '', role: 'agent' });
+      loadUsers();
+    } catch (err) {
+      setCreateError(err.message);
+    } finally {
+      setCreating(false);
+    }
   }
 
   function getStatusColor(status) {
@@ -43,10 +60,36 @@ export default function Users() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Users</h1>
-        <p className="text-sm text-gray-500 mt-1">{users.length} users registered · New users sign up at the login page</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Users</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage who has access to CallJet</p>
+        </div>
+        {isAdmin && (
+          <button onClick={() => { setShowCreate(!showCreate); setCreateError(''); }} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add user
+          </button>
+        )}
       </div>
+
+      {showCreate && (
+        <div className="card p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">Add new user</h2>
+          {createError && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">{createError}</div>}
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="label">Full name</label><input className="input-field" value={createForm.name} onChange={e => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Jan Janssen" required /></div>
+              <div><label className="label">Email</label><input type="email" className="input-field" value={createForm.email} onChange={e => setCreateForm({ ...createForm, email: e.target.value })} placeholder="jan@company.com" required /></div>
+              <div><label className="label">Temporary password</label><input className="input-field" value={createForm.password} onChange={e => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min. 6 characters" minLength={6} required /></div>
+              <div><label className="label">Role</label><select className="input-field" value={createForm.role} onChange={e => setCreateForm({ ...createForm, role: e.target.value })}><option value="agent">Agent</option><option value="admin">Admin</option></select></div>
+            </div>
+            <div className="flex gap-3">
+              <button type="submit" disabled={creating} className="btn-primary flex items-center gap-2"><Check className="w-4 h-4" />{creating ? 'Creating...' : 'Create user'}</button>
+              <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-calljet-600" /></div>
@@ -118,6 +161,7 @@ export default function Users() {
                   )}
                 </tr>
               ))}
+              {users.length === 0 && <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">No users yet</td></tr>}
             </tbody>
           </table>
         </div>

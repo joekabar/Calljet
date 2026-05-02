@@ -12,6 +12,7 @@ import callRoutes from './routes/calls.js';
 import callbackRoutes from './routes/callbacks.js';
 import userRoutes from './routes/users.js';
 import webhookRoutes from './routes/webhooks.js';
+import phoneNumberRoutes from './routes/phoneNumbers.js';
 import { setupWebSocket } from './services/websocket.js';
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/calls', callRoutes);
 app.use('/api/callbacks', callbackRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/phone-numbers', phoneNumberRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
