@@ -87,6 +87,12 @@ router.post('/next', requireAuth, async (req, res) => {
     if (error) throw error;
     if (!data) return res.json({ lead: null, message: 'No leads available' });
 
+    // Guard: skip auto_redial leads whose callback_time hasn't arrived yet.
+    // The DB function may not filter these if migration 002 hasn't been applied.
+    if (data.status === 'auto_redial' && data.callback_time && new Date(data.callback_time) > new Date()) {
+      return res.json({ lead: null, message: 'No leads available' });
+    }
+
     await supabase.from('leads').update({ status: 'in_progress', assigned_to: req.user.id }).eq('id', data.id);
     res.json({ lead: data });
   } catch (err) {
@@ -101,8 +107,15 @@ router.put('/:id/save', requireAuth, async (req, res) => {
     const leadId = req.params.id;
     const userId = req.user.id;
 
+    const TERMINAL_STATUSES = ['not_interested', 'unqualified', 'invalid', 'success'];
     const updateFields = { status, data: leadData, last_contacted_by: userId, last_contacted_at: new Date().toISOString(), blocklisted: blocklist || false };
-    if (callback_time) { updateFields.callback_time = callback_time; updateFields.callback_type = callback_type || 'private'; }
+    if (callback_time) {
+      updateFields.callback_time = callback_time;
+      updateFields.callback_type = callback_type || 'private';
+    } else if (TERMINAL_STATUSES.includes(status)) {
+      updateFields.callback_time = null;
+      updateFields.callback_type = null;
+    }
 
     const { data: lead, error } = await supabase.from('leads').update(updateFields).eq('id', leadId).select().single();
     if (error) throw error;
