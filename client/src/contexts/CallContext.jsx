@@ -153,9 +153,9 @@ export function CallProvider({ children }) {
         destinationNumber: phoneNumber,
         callerNumber: callerId || import.meta.env.VITE_TELNYX_CALLER_ID,
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
           channelCount: 1,
           sampleRate: 48000,
           sampleSize: 16
