@@ -90,7 +90,19 @@ router.post('/next', requireAuth, async (req, res) => {
     // Guard: skip auto_redial leads whose callback_time hasn't arrived yet.
     // The DB function may not filter these if migration 002 hasn't been applied.
     if (data.status === 'auto_redial' && data.callback_time && new Date(data.callback_time) > new Date()) {
-      return res.json({ lead: null, message: 'No leads available' });
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('campaign_id', campaign_id)
+        .eq('status', 'unprocessed')
+        .eq('blocklisted', false)
+        .eq('expired', false)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (fallbackErr) throw fallbackErr;
+      if (!fallback) return res.json({ lead: null, message: 'No leads available' });
+      data = fallback;
     }
 
     await supabase.from('leads').update({ status: 'in_progress', assigned_to: req.user.id }).eq('id', data.id);

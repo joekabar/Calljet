@@ -299,7 +299,10 @@ export default function Dialer() {
                 <div className="flex flex-col items-center justify-center h-full text-gray-500 py-16">
                   <p className="text-lg font-medium mb-2">Queue empty</p>
                   <p className="text-sm text-gray-400 mb-4">No more leads available in this campaign.</p>
-                  <button onClick={() => navigate('/')} className="btn-secondary text-sm">Back to dashboard</button>
+                  <div className="flex gap-2">
+                    <button onClick={fetchNextLead} className="btn-primary text-sm">Try again</button>
+                    <button onClick={() => navigate('/')} className="btn-secondary text-sm">Back to dashboard</button>
+                  </div>
                 </div>
               ) : activeTab === 'data' ? (
                 <LeadPanel lead={currentLead} campaign={campaign} leadData={leadData} onUpdateField={updateLeadField} onFetchNext={fetchNextLead} fetchingLead={fetchingLead} />
